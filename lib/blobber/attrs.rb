@@ -95,10 +95,12 @@ module Blobber
         else
           return normalize_blob_val(key, dfn[:default])
         end
-      elsif dfn[:array]
-        return []
-      elsif dfn[:hash]
-        return {}
+      elsif dfn[:container]
+        case dfn[:container]
+        when :array then return []
+        when :hash then return {}
+        else raise "not implemented"
+        end
       elsif dfn[:class]
         klass = dfn[:class]
         if klass.class == Proc
@@ -115,7 +117,7 @@ module Blobber
       dfn = get_blob_attr_def!(key)
       if raw.nil?
         return nil
-      elsif dfn[:array]
+      elsif dfn[:container] == :array
         values = []
         raw.each do |item|
           if dfn[:class]
@@ -125,7 +127,7 @@ module Blobber
           end
         end
         return values
-      elsif dfn[:hash]
+      elsif dfn[:container] == :hash
         values = {}
         raw.each do |rkey, val|
           if dfn[:class]
@@ -175,7 +177,7 @@ module Blobber
           raise "Cannot set blob key '#{key}' to null"
         end
       else    
-        if dfn[:array]
+        if dfn[:container] == :array
           if val.class != Array
             raise "Cannot convert #{val.class} to Array"
           end
@@ -185,7 +187,7 @@ module Blobber
               raise "Cannot convert classes [" + invalid_classes.map{|x| x.name}.join(', ') + "] to [#{dfn[:class]}]"
             end
           end
-        elsif dfn[:hash]
+        elsif dfn[:container] == :hash
           if val.class != Hash
             raise "Cannot convert #{val.class} to Hash"
           end
@@ -209,8 +211,7 @@ module Blobber
     module ClassMethods
       public
       def blob_attr(key, opt = {})
-        opt = Hashie::Mash.new(opt)
-        validate_blob_attr_def!(opt)
+        opt = validate_blob_attr_def!(opt)
 
         @blob_attr_defs ||= {}
         if @blob_attr_defs.count == 0
@@ -236,12 +237,25 @@ module Blobber
 
       private
       def validate_blob_attr_def!(dfn)
-        available_opts = ["hash", "array", "class", "allow_nil",
-                          "callback", "default"].freeze
+        available_opts = [:container, :class, :allow_nil,
+                          :callback, :default].freeze
         unhandled_options = dfn.keys - available_opts
         if unhandled_options.any?
           raise "Unexpected blob attribute options: #{unhandled_options.join(', ')}"
         end
+
+        if dfn[:container]
+          unless [Hash, :hash, Array, :array].include?(dfn[:container])
+            raise "Container '#{dfn.container}' not supported"
+          end
+          if dfn[:container] == Hash
+            dfn[:container] = :hash
+          elsif dfn[:container] == Array
+            dfn[:container] = :array
+          end
+        end
+
+        return dfn
       end
     end
   end
