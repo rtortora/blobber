@@ -8,22 +8,6 @@ module Blobber
     public
     def reset
       @blob_values = {}
-      @blob_views = {}
-    end
-
-    private
-    def get_blob_views
-      view_holders = []
-      klass = self.class
-      while (klass != nil)
-        view_holders << klass.instance_variable_get("@blob_views")
-        klass = klass.superclass
-      end
-      views = {}
-      view_holders.compact.reverse.each do |view_holder|
-        views.merge!(view_holder)
-      end
-      return views
     end
 
     private
@@ -31,7 +15,7 @@ module Blobber
       attr_holders = []
       klass = self.class
       while (klass != nil)
-        attr_holders << klass.instance_variable_get("@blob_attrs")
+        attr_holders << klass.instance_variable_get("@blob_attr_defs")
         klass = klass.superclass
       end
       attrs = {}
@@ -39,11 +23,6 @@ module Blobber
         attrs.merge!(attr_holder)
       end
       return attrs
-    end
-
-    public
-    def get_blob_view(key)
-      return get_blob_views[key.to_s]
     end
 
     public
@@ -97,9 +76,6 @@ module Blobber
         source = {}
       else
         source = JSON.parse(blob)
-      end
-      get_blob_views.each do |key, callback|
-        source[key.to_s] = instance_exec(self, &callback)
       end
       get_blob_attr_defs.each do |key, info|
         if @blob_values[key.to_s].nil?
@@ -231,19 +207,15 @@ module Blobber
 
     public
     module ClassMethods
-      def blob_view(key, &block)
-        @blob_views ||= {}
-        @blob_views[key.to_s] = block
-        define_method key do
-          instance_exec(self, &block)
-        end
-      end
-
+      public
       def blob_attr(key, opt = {})
-        @blob_attrs ||= {}
-        if @blob_attrs.count == 0
-          # need to flush before saving in case an array changed or some child
-          # property, etc
+        opt = Hashie::Mash.new(opt)
+        validate_blob_attr_def!(opt)
+
+        @blob_attr_defs ||= {}
+        if @blob_attr_defs.count == 0
+          # Silly hack for ActiveRecord models - makes sure to flush changes
+          # prior to saving the record.
           if respond_to?(:before_save)
             before_save do |record|
               record.flush
@@ -251,7 +223,7 @@ module Blobber
           end
         end
 
-        @blob_attrs[key.to_s] = Hashie::Mash.new(opt)
+        @blob_attr_defs[key.to_s] = opt
 
         define_method key do
           get_blob_val(key)
@@ -259,6 +231,16 @@ module Blobber
 
         define_method "#{key}=" do |val|
           set_blob_val(key, val)
+        end
+      end
+
+      private
+      def validate_blob_attr_def!(dfn)
+        available_opts = ["hash", "array", "class", "allow_nil",
+                          "callback", "default"].freeze
+        unhandled_options = dfn.keys - available_opts
+        if unhandled_options.any?
+          raise "Unexpected blob attribute options: #{unhandled_options.join(', ')}"
         end
       end
     end

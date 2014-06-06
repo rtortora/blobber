@@ -1,35 +1,25 @@
 module Blobber
   class Base
     attr_accessor :blob
-    attr_accessor :warnings
     include ::Blobber::Attrs
 
     public
-    def initialize(data = {}, &block)
-      self.warnings = []
-      apply_blob(data)
+    def initialize(data = {}, opt = {}, &block)
+      apply_blob(data, opt)
       if block_given?
         yield(self)
       end
     end
 
     public
-    def apply_blob(data)
-      cached_views = get_blob_views
+    def apply_blob(data, opt = {})
+      opt[:ignore_missing] = true unless opt.key?(:ignore_missing)
       data.each do |key, val|
-        next if key == "warnings" || cached_views[key]
         if get_blob_attr_def(key)
           constructed = construct_blob_val(key, val)
           send("#{key}=", constructed)
         else
-          do_warn = true
-          if self.class.respond_to?("blob_properties_never_read") &&
-              self.class.blob_properties_never_read.include?(key.to_s)
-            do_warn = false
-          end
-          if do_warn
-            warnings << "Skipped data key '#{key}' - no such attrib"
-          end
+          raise "No such data key '#{key}'" unless opt[:ignore_missing]
         end
       end
     end
@@ -48,9 +38,6 @@ module Blobber
     def as_json(*args)
       flush
       json = JSON::parse(blob)
-      if warnings && warnings.size > 0
-        json[:warnings] = warnings
-      end
       return json
     end
 
