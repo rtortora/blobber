@@ -15,9 +15,12 @@ module Blobber
     def apply_blob(data, opt = {})
       opt[:ignore_missing] = true unless opt.key?(:ignore_missing)
       data.each do |key, val|
-        if get_blob_attr_def(key)
-          constructed = construct_blob_val(key, val)
-          send("#{key}=", constructed)
+        dfn = get_blob_attr_def(key)
+        if dfn
+          unless dfn[:read_only]
+            constructed = construct_blob_val(key, val)
+            send("#{key}=", constructed)
+          end
         else
           raise "No such data key '#{key}'" unless opt[:ignore_missing]
         end

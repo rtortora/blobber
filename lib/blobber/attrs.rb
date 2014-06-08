@@ -39,6 +39,10 @@ module Blobber
 
     public
     def get_blob_val(key)
+      dfn = get_blob_attr_def!(key)
+      if dfn[:read_only]
+        return dfn[:read_only].call
+      end
       @blob_values ||= {}
       if @blob_values[key.to_s].nil?
         if blob.nil?
@@ -78,10 +82,14 @@ module Blobber
         source = JSON.parse(blob)
       end
       get_blob_attr_defs.each do |key, info|
-        if @blob_values[key.to_s].nil?
-          set_blob_val(key, default_blob_val(key))
+        if info[:read_only]
+          source[key.to_s] = info[:read_only].call
+        else
+          if @blob_values[key.to_s].nil?
+            set_blob_val(key, default_blob_val(key))
+          end
+          source[key.to_s] = @blob_values[key]
         end
-        source[key.to_s] = @blob_values[key]
       end
       self.blob = source.to_json
     end
@@ -176,8 +184,10 @@ module Blobber
         if dfn[:allow_nil] == false
           raise "Cannot set blob key '#{key}' to null"
         end
-      else    
-        if dfn[:container] == :array
+      else
+        if dfn[:read_only]
+          raise "Cannot change #{key} - it is read only"
+        elsif dfn[:container] == :array
           if val.class != Array
             raise "Cannot convert #{val.class} to Array"
           end
@@ -238,10 +248,19 @@ module Blobber
       private
       def validate_blob_attr_def!(dfn)
         available_opts = [:container, :class, :allow_nil,
-                          :callback, :default].freeze
+                          :callback, :default, :read_only].freeze
         unhandled_options = dfn.keys - available_opts
         if unhandled_options.any?
           raise "Unexpected blob attribute options: #{unhandled_options.join(', ')}"
+        end
+
+        if dfn[:read_only]
+          unless dfn[:read_only].class == Proc
+            raise "Read only must define a callback to express the value."
+          end
+          if (dfn.keys - [:read_only]).any?
+            raise "Read only attributes only define a callback, other configurations aren't needed or allowed: #{(dfn.keys -[:read_only]).join(', ')}"
+          end
         end
 
         if dfn[:container]
