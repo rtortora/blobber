@@ -1,4 +1,4 @@
-blobobj
+blobber
 =======
 
 A light-weight DSL for accessing attributes stored in a JSON blob.
