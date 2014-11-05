@@ -97,7 +97,7 @@ module Blobber
     private
     def default_blob_val(key)
       dfn = get_blob_attr_def!(key)
-      if dfn.key?("default")
+      if dfn.key?(:default)
         if dfn[:default].class == Proc
           return normalize_blob_val(key, instance_exec(&dfn[:default]))
         else
