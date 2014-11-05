@@ -1,7 +1,7 @@
 Gem::Specification.new do |s|
   s.name        = 'blobber'
-  s.version     = '0.0.1'
-  s.date        = '2014-06-05'
+  s.version     = '0.0.2'
+  s.date        = '2014-11-05'
   s.summary     = "Helpers for creating models backed by json data blobs."
   s.description = "Helpers for creating models backed by json data blobs."
   s.authors     = ["Richard Tortora"]
