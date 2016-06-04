@@ -3,6 +3,8 @@ blobber
 
 A light-weight DSL for accessing attributes stored in a JSON blob.
 
+Note: I don't recommend this for real production uses, it's only been used in small hobby projects, there are probably better alternatives out there.
+
 ## Usage
 
 Here's an example:
